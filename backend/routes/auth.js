@@ -1,35 +1,32 @@
-import router from 'express';
-import User from '../models/user.js';
-import Joi from 'joi';
-import bcrypt from 'bcrypt';
+// auth.js
+import express from "express"; // ✅ Import the full express module
+const router = express.Router(); // ✅ Create a new router instance
 
-router.post("/", async(req, res) =>{
+import { User, validate } from "../models/user.js";
+import bcrypt from "bcrypt";
+
+console.log("✅ auth.js router loaded");
+
+router.post("/", async (req, res) => {
     try {
-        const {error} = validate(req.body);
-        if(error)return res.status(400).send({message:error.details[0].message});
+        const { error } = validate(req.body);
+        if (error)
+            return res.status(400).send({ message: error.details[0].message });
 
-        const user = await User.findOne({email:req.body.email});
-        if(!user)return res.status(401).send({message:"Invalid Email or Password"});
+        const existingUser = await User.findOne({ email: req.body.email });
+        if (existingUser)
+            return res.status(409).send({ message: "User with given email already exists" });
 
-        const validPassword = await bcrypt.compare(
-            req.body.password, user.password
-        );
-        if(!validPassword)return res.status(401).send({message:"Invalid Email or password"});
+        const salt = await bcrypt.genSalt(Number(process.env.SALT));
+        const hashedPassword = await bcrypt.hash(req.body.password, salt);
 
-        const token = user.generateAuthToken();
-        res.status(200).send({data: token, message:"Logged is successfully"});
+        await new User({ ...req.body, password: hashedPassword }).save();
+        res.status(201).send({ message: "User created successfully" });
 
     } catch (error) {
-        res.status(500).send({message:"Internal Server Error"});
+        console.error("Registration error:", error);
+        res.status(500).send({ message: "Internal Server Error" });
     }
 });
 
-const validate = (data) =>{
-    const schema = Joi.object({
-        email:Joi.string().email().required().label("Email"),
-        password:Joi.string().required().label("Password")
-    });
-    return schema.validate(data);
-}
-
-module.exports = router;
+export default router;

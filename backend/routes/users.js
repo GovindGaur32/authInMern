@@ -1,6 +1,8 @@
-import router from "express";
-import { User, validate } from "../models/user.js"
-import bcrypt from 'bcrypt';
+import express from "express";
+import { User, validate } from "../models/user.js";
+import bcrypt from "bcrypt";
+
+const router = express.Router();
 
 router.post("/", async (req, res) => {
     try {
@@ -8,9 +10,9 @@ router.post("/", async (req, res) => {
         if (error)
             return res.status(400).send({ message: error.details[0].message });
 
-        const user = await User.findOne({ email: req.body.email });
-        if (user)
-            return res.status(409).send({ message: "User with given email already exist" });
+        const existingUser = await User.findOne({ email: req.body.email });
+        if (existingUser)
+            return res.status(409).send({ message: "User with given email already exists" });
 
         const salt = await bcrypt.genSalt(Number(process.env.SALT));
         const hashPassword = await bcrypt.hash(req.body.password, salt);
@@ -19,8 +21,9 @@ router.post("/", async (req, res) => {
         res.status(201).send({ message: "User created successfully" });
 
     } catch (error) {
-        res.status(500).send({ message: "Intercal Server Error" });
+        console.error("Registration error:", error);
+        res.status(500).send({ message: "Internal Server Error" });
     }
-})
+});
 
-module.exports = router;
+export default router;
